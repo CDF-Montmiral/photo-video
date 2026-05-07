@@ -137,6 +137,8 @@
 <footer>© Comité des Fêtes de Montmiral</footer>
 
 <script>
+  const API_URL = "https://shipment-noticed-injured-faqs.trycloudflare.com/upload";
+
   const MAX = 20;
   let files = [];
 
@@ -152,6 +154,7 @@
   function updateSubmit() {
     submitBtn.disabled = !(files.length > 0 && consentCheck.checked);
   }
+
   consentCheck.addEventListener('change', updateSubmit);
 
   function addFiles(newFiles) {
@@ -169,53 +172,107 @@
     previewGrid.innerHTML = '';
     counter.style.display = files.length ? 'block' : 'none';
     countEl.textContent   = files.length;
+
     files.forEach((f, i) => {
       const div = document.createElement('div');
       div.className = 'thumb';
-      const isVideo = f.type.startsWith('video/');
+
       const url = URL.createObjectURL(f);
+      const isVideo = f.type.startsWith('video/');
+
       if (isVideo) {
         const vid = document.createElement('video');
-        vid.src = url; vid.muted = true;
+        vid.src = url;
+        vid.muted = true;
         div.appendChild(vid);
+
         const badge = document.createElement('div');
-        badge.className = 'vbadge'; badge.textContent = '▶ vidéo';
+        badge.className = 'vbadge';
+        badge.textContent = '▶ vidéo';
         div.appendChild(badge);
       } else {
         const img = document.createElement('img');
         img.src = url;
         div.appendChild(img);
       }
+
       const rm = document.createElement('button');
-      rm.className = 'rm'; rm.textContent = '✕'; rm.type = 'button';
-      rm.onclick = () => { files.splice(i, 1); warn.style.display = 'none'; renderPreviews(); updateSubmit(); };
+      rm.className = 'rm';
+      rm.textContent = '✕';
+      rm.type = 'button';
+
+      rm.onclick = () => {
+        files.splice(i, 1);
+        warn.style.display = 'none';
+        renderPreviews();
+        updateSubmit();
+      };
+
       div.appendChild(rm);
       previewGrid.appendChild(div);
     });
   }
 
-  fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value = ''; });
-  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('over'); });
-  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('over'));
-  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('over'); addFiles([...e.dataTransfer.files]); });
+  fileInput.addEventListener('change', () => {
+    addFiles([...fileInput.files]);
+    fileInput.value = '';
+  });
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('over');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('over');
+  });
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('over');
+    addFiles([...e.dataTransfer.files]);
+  });
 
   async function handleSubmit() {
     submitBtn.disabled = true;
+
     const progressWrap  = document.getElementById('progressWrap');
     const progressFill  = document.getElementById('progressFill');
     const progressLabel = document.getElementById('progressLabel');
+
     progressWrap.style.display = 'block';
 
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise(r => setTimeout(r, 40));
-      progressFill.style.width = i + '%';
-      progressLabel.textContent = i < 100 ? `Envoi en cours… ${i}%` : 'Envoi terminé !';
-    }
+    try {
+      let total = files.length;
+      let done = 0;
 
-    await new Promise(r => setTimeout(r, 400));
-    document.getElementById('mainForm').style.display = 'none';
-    document.getElementById('successMsg').style.display = 'block';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+      for (let file of files) {
+        let formData = new FormData();
+        formData.append("file", file);
+
+        await fetch(API_URL, {
+          method: "POST",
+          body: formData
+        });
+
+        done++;
+        let percent = Math.round((done / total) * 100);
+
+        progressFill.style.width = percent + "%";
+        progressLabel.textContent = `Envoi ${done}/${total}`;
+      }
+
+      progressLabel.textContent = "Envoi terminé 🎉";
+
+      await new Promise(r => setTimeout(r, 800));
+
+      document.getElementById('mainForm').style.display = 'none';
+      document.getElementById('successMsg').style.display = 'block';
+
+    } catch (err) {
+      alert("Erreur upload : " + err);
+      submitBtn.disabled = false;
+    }
   }
 </script>
 </body>
